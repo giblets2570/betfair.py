@@ -21,9 +21,14 @@ IDENTITY_URLS = collections.defaultdict(
     italy='https://identitysso.betfair.it/api/',
 )
 
-API_URLS = collections.defaultdict(
+BETTING_API_URLS = collections.defaultdict(
     lambda: 'https://api.betfair.com/exchange/betting/json-rpc/v1',
     australia='https://api-au.betfair.com/exchange/betting/json-rpc/v1',
+)
+
+ACCOUNT_API_URLS = collections.defaultdict(
+    lambda: 'https://api.betfair.com/exchange/account/json-rpc/v1',
+    australia='https://api-au.betfair.com/exchange/account/json-rpc/v1',
 )
 
 
@@ -53,8 +58,12 @@ class Betfair(object):
         return IDENTITY_URLS[self.locale]
 
     @property
-    def api_url(self):
-        return API_URLS[self.locale]
+    def betting_api_url(self):
+        return BETTING_API_URLS[self.locale]
+
+    @property
+    def account_api_url(self):
+        return ACCOUNT_API_URLS[self.locale]
 
     @property
     def headers(self):
@@ -78,15 +87,23 @@ class Betfair(object):
 
     def make_api_request(self, base, method, params, codes=None, model=None):
         payload = utils.make_payload(base, method, params)
+        if base=="Sports":
+            api_url = self.betting_api_url
+        else:
+            api_url = self.account_api_url
+        data = json.dumps(payload, cls=utils.BetfairEncoder)
+        print("Data: {}".format(data))
         response = self.session.post(
-            self.api_url,
-            data=json.dumps(payload, cls=utils.BetfairEncoder),
+            api_url,
+            data=data,
             headers=self.headers,
             timeout=self.timeout,
         )
+        # print(response.json())
         utils.check_status_code(response, codes=codes)
         result = utils.result_or_error(response)
-        return utils.process_result(result, model)
+        processed_result = utils.process_result(result, model)
+        return processed_result
 
     # Authentication methods
 
@@ -449,7 +466,7 @@ class Betfair(object):
 
         :param Wallet wallet: Name of the wallet in question
         """
-        result = self.make_api_request(
+        return self.make_api_request(
             'Account',
             'getAccountFunds',
             utils.get_kwargs(locals()),
@@ -469,7 +486,7 @@ class Betfair(object):
         :param IncludeItem include_item: Which items to include
         :param Wallet wallte: Which wallet to return statementItems for
         """
-        result = self.make_api_request(
+        return self.make_api_request(
             'Account',
             'getAccountStatement',
             utils.get_kwargs(locals()),
@@ -481,7 +498,7 @@ class Betfair(object):
         """Returns the details relating your account, including your discount
         rate and Betfair point balance.
         """
-        result = self.make_api_request(
+        return self.make_api_request(
             'Account',
             'getAccountDetails',
             utils.get_kwargs(locals()),
@@ -494,7 +511,7 @@ class Betfair(object):
 
         :param str from_currency: The currency from which the rates are computed
         """
-        result = self.make_api_request(
+        return self.make_api_request(
             'Account',
             'listCurrencyRates',
             utils.get_kwargs(locals()),
@@ -509,7 +526,7 @@ class Betfair(object):
         :param Wallet to: Destination wallet
         :param float amount: Amount to transfer
         """
-        result = self.make_api_request(
+        return self.make_api_request(
             'Account',
             'transferFunds',
             utils.get_kwargs(locals()),
